@@ -18,12 +18,42 @@ const TOAST_CLASS_NAMES = {
 } as const
 
 /**
- * Toaster component với theme support
- * Sử dụng theme cố định để tránh lỗi build trên Netlify
+ * Safe theme detection utility
+ * Fallback to default theme nếu ThemeProvider không available
+ */
+const getSafeTheme = (): "dark" | "light" => {
+  try {
+    // Kiểm tra theme từ DOM class hoặc localStorage
+    const root = document.documentElement
+    if (root.classList.contains('dark')) return 'dark'
+    if (root.classList.contains('light')) return 'light'
+    
+    // Fallback: check localStorage
+    const stored = localStorage.getItem('memory-safe-guard-theme')
+    if (stored === 'dark' || stored === 'light') return stored
+    
+    // Final fallback: system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  } catch {
+    // Safe fallback cho SSR hoặc restricted environments
+    return DEFAULT_THEME
+  }
+}
+
+/**
+ * Toaster component với intelligent theme detection
  * 
- * Note: Có thể cải thiện sau để sync với ThemeProvider
+ * Features:
+ * - Safe theme detection không phụ thuộc vào ThemeProvider context
+ * - Fallback chain: DOM classes → localStorage → system preference → default
+ * - Memoized configuration để optimize performance
+ * 
+ * @param props - Sonner toaster props
  */
 const Toaster = (props: ToasterProps) => {
+  // Intelligent theme detection với multiple fallbacks
+  const detectedTheme = getSafeTheme()
+  
   // Memoize toast options để tránh unnecessary re-creation
   const toastOptions = useMemo(() => ({
     classNames: TOAST_CLASS_NAMES,
@@ -31,7 +61,7 @@ const Toaster = (props: ToasterProps) => {
 
   return (
     <Sonner
-      theme={DEFAULT_THEME}
+      theme={detectedTheme}
       className={TOAST_BASE_CLASSES}
       toastOptions={toastOptions}
       {...props}
